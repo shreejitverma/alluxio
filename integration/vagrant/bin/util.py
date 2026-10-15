@@ -24,7 +24,7 @@ def mkdir_p(path):
     try:
         os.makedirs(path)
     except OSError as e:
-        if not e.errno == errno.EEXIST:
+        if e.errno != errno.EEXIST:
             raise
 
 
@@ -32,7 +32,7 @@ def _colorize(code):
     def _(text, bold=False):
         c = code
         if bold:
-            c = '1;%s' % c
+            c = f'1;{c}'
         return '\033[%sm%s\033[0m' % (c, text)
     return _
 
@@ -42,14 +42,14 @@ _yellow = _colorize('33')
 
 
 def info(msg):
-    print(_green(">>> " + msg))
+    print(_green(f">>> {msg}"))
 
 
 def error(msg):
-    print(_red(">>> " + msg, True), file=stderr)
+    print(_red(f">>> {msg}", True), file=stderr)
 
 
 def warn(msg):
-    print(_yellow(">>> " + msg, True))
+    print(_yellow(f">>> {msg}", True))
 
 

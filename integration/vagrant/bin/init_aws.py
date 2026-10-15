@@ -34,20 +34,22 @@ def get_or_make_group(conn, name, vpc=None):
         vpc = None
     if (vpc is not None):
         groups = [g for g in groups if (g.vpc_id == vpc)]
-    if len(groups) > 0:
+    if groups:
         return groups[0]
-    else:
-        info("Creating security group {name} in {region}".format(name=name, region=conn.region))
-        group = conn.create_security_group(name, "Auto created by Alluxio deploy", vpc)
-        info("Created security group ID {id}".format(id=group.id))
-        return group
+    info("Creating security group {name} in {region}".format(name=name, region=conn.region))
+    group = conn.create_security_group(name, "Auto created by Alluxio deploy", vpc)
+    info("Created security group ID {id}".format(id=group.id))
+    return group
 
 
 def set_security_group(conn, name, vpc=None):
-    info("Setting up security group {} in {}".format(name, conn.region))
+    info(f"Setting up security group {name} in {conn.region}")
     sg = get_or_make_group(conn, name, vpc)
     if sg.rules != []:
-        warn('security group {} in {} already has rules, no modification will happen then'.format(name, conn.region))
+        warn(
+            f'security group {name} in {conn.region} already has rules, no modification will happen then'
+        )
+
         return sg.id
     proto = ['tcp', 'udp']
     authorized_ip = '0.0.0.0/0' # all IP
@@ -74,10 +76,15 @@ def gen_boto_config(access_key, secret_key):
     home=os.path.expanduser('~')
     boto_config_path = os.path.join(home, '.boto')
     with open(boto_config_path, 'w') as boto_config:
-        boto_config.write('\n'.join([
-            '[Credentials]',
-            'aws_access_key_id = ' + access_key,
-            'aws_secret_access_key = ' + secret_key]))
+        boto_config.write(
+            '\n'.join(
+                [
+                    '[Credentials]',
+                    f'aws_access_key_id = {access_key}',
+                    f'aws_secret_access_key = {secret_key}',
+                ]
+            )
+        )
 
 
 def get_ec2_conf():
@@ -86,8 +93,7 @@ def get_ec2_conf():
 
 def get_conn():
     try:
-        conn = ec2.connect_to_region(get_ec2_conf()['Region'])
-        return conn
+        return ec2.connect_to_region(get_ec2_conf()['Region'])
     except Exception as e:
         error(e.message)
         sys.exit(1)

@@ -82,7 +82,7 @@ def wait_until_fulfilled(request_ids, conn):
 
 
 def add_tag(host):
-    return '{}-{}'.format(get_ec2_conf()['Tag'], host)
+    return f"{get_ec2_conf()['Tag']}-{host}"
 
 
 def get_host(tag):
@@ -92,22 +92,21 @@ def get_host(tag):
 # request_id -> tag
 def request_id_to_tag(requests, masters):
     ret = {}
-    for i, rid in enumerate([r.id for r in requests]):
+    for i, rid in enumerate(r.id for r in requests):
         # TODO(cc): This naming convention for host may need changes
         if i == 0:
             host = 'AlluxioMaster'
         elif i < masters:
-            host = 'AlluxioMaster{}'.format(i + 1)
+            host = f'AlluxioMaster{i + 1}'
         else:
-            host = 'AlluxioWorker{}'.format(i - masters + 1)
+            host = f'AlluxioWorker{i - masters + 1}'
         ret[rid] = add_tag(host)
     return ret
 
 
 def save_request_ids(request_ids):
-    out = open('.request_ids', 'w')
-    pickle.dump(request_ids, out)
-    out.close()
+    with open('.request_ids', 'w') as out:
+        pickle.dump(request_ids, out)
 
 
 def load_request_ids():
@@ -156,8 +155,9 @@ def cancel_request(conn):
     requests = conn.get_all_spot_instance_requests(load_request_ids())
     for r in requests:
         r.cancel()
-    instance_ids = [r.instance_id for r in requests if r.instance_id is not None]
-    if len(instance_ids) > 0:
+    if instance_ids := [
+        r.instance_id for r in requests if r.instance_id is not None
+    ]:
         conn.terminate_instances(instance_ids)
 
 
@@ -166,30 +166,38 @@ def cancel_request(conn):
 def mock_vagrant_info(instance_id_to_tag_ip):
     inventory_dir = '.vagrant/provisioners/ansible/inventory'
     mkdir_p(inventory_dir)
-    inventory = open(os.path.join(inventory_dir, 'vagrant_ansible_inventory'), 'w')
-    for instance_id, tag_ip in instance_id_to_tag_ip.iteritems():
-        tag, ip = tag_ip
-        host = get_host(tag)
+    with open(os.path.join(inventory_dir, 'vagrant_ansible_inventory'), 'w') as inventory:
+        for instance_id, tag_ip in instance_id_to_tag_ip.iteritems():
+            tag, ip = tag_ip
+            host = get_host(tag)
 
-        inventory.write("{} ansible_ssh_host={} ansible_ssh_port=22\n".format(host, ip))
+            inventory.write("{} ansible_ssh_host={} ansible_ssh_port=22\n".format(host, ip))
 
-        id_dir = os.path.join('.vagrant', 'machines', host, 'aws')
-        mkdir_p(id_dir)
-        with open(os.path.join(id_dir, 'id'), 'w') as f:
-            f.write(instance_id)
-    inventory.close()
+            id_dir = os.path.join('.vagrant', 'machines', host, 'aws')
+            mkdir_p(id_dir)
+            with open(os.path.join(id_dir, 'id'), 'w') as f:
+                f.write(instance_id)
 
 
 def is_ssh_ready(host):
-    s = subprocess.Popen(['ssh',
-        '-o', 'StrictHostKeyChecking=no',
-        '-o', 'UserKnownHostsFile=/dev/null',
-        '-o', 'ConnectTimeout=30',
-        '-i', os.path.expanduser(get_ec2_conf()['Key_Path']),
-        '%s@%s' % ('ec2-user', host),
-        'true'],
+    s = subprocess.Popen(
+        [
+            'ssh',
+            '-o',
+            'StrictHostKeyChecking=no',
+            '-o',
+            'UserKnownHostsFile=/dev/null',
+            '-o',
+            'ConnectTimeout=30',
+            '-i',
+            os.path.expanduser(get_ec2_conf()['Key_Path']),
+            f'ec2-user@{host}',
+            'true',
+        ],
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+        stderr=subprocess.STDOUT,
+    )
+
     s.communicate()
     return s.returncode == 0
 
